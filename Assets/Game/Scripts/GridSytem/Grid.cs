@@ -1,3 +1,4 @@
+using Scripts.GridSystem.Model;
 using UnityEngine;
 namespace Scripts.GridSystem
 {
@@ -5,14 +6,16 @@ namespace Scripts.GridSystem
     {
         public readonly int GridSize;
         public readonly float CellSize;
+        public readonly int ClusterSize;
         
         private readonly uint[] _obstacleBitmask;
         private readonly Vector3[] _worldPositions;
 
-        public Grid(int gridSize, float cellSize)
+        public Grid(int gridSize, float cellSize, int clusterSize)
         {
             GridSize = gridSize;
             CellSize = cellSize;
+            ClusterSize = clusterSize;
             _obstacleBitmask = new uint[(gridSize * gridSize + 31) / 32];
             _worldPositions = new Vector3[gridSize * gridSize];
 
@@ -57,10 +60,20 @@ namespace Scripts.GridSystem
             int z = Mathf.FloorToInt((worldPos.z / CellSize) + GridSize * 0.5f);
 
             if (x >= 0 && x < GridSize && z >= 0 && z < GridSize)
-            {
                 return (x, z);
-            }
+            
             return null;
+        }
+        
+        public GridCluster GetClusterFromWorldPos(Vector3 worldPos, ClusterGraph clusterGraph)
+        {
+            var coords = GetCoordsFromWorldPos(worldPos);
+            if(!coords.HasValue) return null;
+             
+            int clusterX = coords.Value.x / ClusterSize;
+            int clusterZ = coords.Value.z / ClusterSize;
+             
+            return clusterGraph.Clusters[clusterX, clusterZ];
         }
     }
 }

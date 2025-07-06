@@ -16,17 +16,21 @@ namespace Scripts.Rendering
 
         public void Tick(float deltaTime)
         {
-            if(_renderableArchetypes == null)
-                _renderableArchetypes = _entityManager.GetArchetypesWith(typeof(CTransformComponent), typeof(CRenderableComponent));
-            
-            if (_renderableArchetypes.Count == 0) return;
-
-            foreach (var archetype in _renderableArchetypes)
+            using (new Unity.Profiling.ProfilerMarker("RenderSystem.Tick").Auto())
             {
-                foreach (var entityId in archetype.Entities)
+                if(_renderableArchetypes == null)
+                    _renderableArchetypes = _entityManager.GetArchetypesWith(typeof(CTransformComponent), typeof(CRenderableComponent));
+            
+                if (_renderableArchetypes.Count == 0) 
+                    return;
+
+                foreach (var archetype in _renderableArchetypes)
                 {
-                    ref var transform = ref _entityManager.GetComponent<CTransformComponent>(entityId);
-                    _presenter.CreateOrUpdateCube(entityId, transform.Position);
+                    foreach (var entityId in archetype.Entities)
+                    {
+                        ref var transform = ref _entityManager.GetComponent<CTransformComponent>(entityId);
+                        _presenter.CreateOrUpdateCube(entityId, transform.Position);
+                    }
                 }
             }
         }
