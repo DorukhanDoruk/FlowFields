@@ -2,9 +2,9 @@
 {
     public static class ConstantVariables
     {
-        public static class Entities
-        {
-            public const int MaxComponentCount = 64;
+        public static class Grid
+        {   
+            public const float RecalculateDistanceThreshold = 2.0f;
         }
     }
 }

@@ -1,3 +1,4 @@
+using Scripts.Constants;
 using Scripts.Entity;
 using Scripts.GridSystem.Model;
 using System.Collections.Generic;
@@ -10,18 +11,17 @@ namespace Scripts.GridSystem
         public Grid Grid => _grid;
         private readonly Grid _grid;
         private readonly Dictionary<InstanceId, FlowFieldData> _flowFields = new();
-        private const float _recalculateDistanceThreshold = 2.0f;
-        private readonly Queue<(int x, int z)> _cellQueue;
         private readonly ushort[,] _staticCostField;
+        private readonly Queue<(int x, int z)> _cellQueue;
 
-        private bool _isStaticCostFieldDirty = true;
         private EntityManager _entityManager;
+        private bool _isStaticCostFieldDirty = true;
 
         public GridManager(int gridSize, float cellSize)
         {
             _grid = new Grid(gridSize, cellSize);
-            _cellQueue = new Queue<(int x, int z)>(gridSize);
             _staticCostField = new ushort[gridSize, gridSize];
+            _cellQueue = new Queue<(int x, int z)>(gridSize);
         }
 
         public void Tick(float deltaTime)
@@ -39,7 +39,7 @@ namespace Scripts.GridSystem
                 Vector3 targetPosition = targetTransform.Position;
 
                 float distanceSq = (targetPosition - fieldData.TargetPosition).sqrMagnitude;
-                float thresholdSq = _recalculateDistanceThreshold * _grid.CellSize * (_recalculateDistanceThreshold * _grid.CellSize);
+                float thresholdSq = ConstantVariables.Grid.RecalculateDistanceThreshold * _grid.CellSize * (ConstantVariables.Grid.RecalculateDistanceThreshold * _grid.CellSize);
 
                 if (distanceSq > thresholdSq)
                 {
@@ -96,19 +96,21 @@ namespace Scripts.GridSystem
                 if (!currentCoordsNullable.HasValue) return Vector3.zero;
 
                 var currentCoords = currentCoordsNullable.Value;
-                var directionCoords = flowField.BestDirectionField[currentCoords.x, currentCoords.z];
+                int currentFlatIndex = currentCoords.x * _grid.GridSize + currentCoords.z;
 
-                if (directionCoords.x == currentCoords.x && directionCoords.z == currentCoords.z)
-                {
+                int directionFlatIndex = flowField.BestDirectionField[currentFlatIndex];
+
+                if (directionFlatIndex == currentFlatIndex)
                     return Vector3.zero;
-                }
 
                 Vector3 startWorldPos = _grid.GetWorldPos(currentCoords.x, currentCoords.z);
-                Vector3 directionWorldPos = _grid.GetWorldPos(directionCoords.x, directionCoords.z);
+
+                int dirX = directionFlatIndex / _grid.GridSize;
+                int dirZ = directionFlatIndex % _grid.GridSize;
+                Vector3 directionWorldPos = _grid.GetWorldPos(dirX, dirZ);
 
                 return Vector3.Normalize(directionWorldPos - startWorldPos);
             }
-
             return Vector3.zero;
         }
 
@@ -117,6 +119,11 @@ namespace Scripts.GridSystem
             if (!_flowFields.ContainsKey(targetId))
             {
                 var newField = new FlowField(_grid.GridSize);
+                if (_isStaticCostFieldDirty)
+                {
+                    CreateStaticCostField();
+                    _isStaticCostFieldDirty = false;
+                }
                 CreateFlowField(targetPosition, newField);
                 _flowFields[targetId] = new FlowFieldData(newField, targetPosition);
             }
@@ -124,7 +131,12 @@ namespace Scripts.GridSystem
 
         private void CreateFlowField(Vector3 targetPosition, FlowField flowField)
         {
-            flowField.Reset();
+            foreach (int flatIndex in flowField.DirtyCells)
+            {
+                flowField.CostField[flatIndex] = ushort.MaxValue;
+                flowField.BestDirectionField[flatIndex] = flatIndex;
+            }
+            flowField.DirtyCells.Clear();
 
             var targetCoordsNullable = _grid.GetCoordsFromWorldPos(targetPosition);
             if (!targetCoordsNullable.HasValue) return;
@@ -133,15 +145,19 @@ namespace Scripts.GridSystem
             _cellQueue.Clear();
             _cellQueue.Enqueue(targetCoords);
 
-            flowField.CostField[targetCoords.x, targetCoords.z] = 0;
-    
+            int targetFlatIndex = targetCoords.x * _grid.GridSize + targetCoords.z;
+            flowField.CostField[targetFlatIndex] = 0;
+            flowField.BestDirectionField[targetFlatIndex] = targetFlatIndex;
+            flowField.DirtyCells.Add(targetFlatIndex);
+
             const ushort straightCost = 10;
             const ushort diagonalCost = 14;
 
             while (_cellQueue.Count > 0)
             {
                 var currentCoords = _cellQueue.Dequeue();
-                ushort currentCost = flowField.CostField[currentCoords.x, currentCoords.z];
+                int currentFlatIndex = currentCoords.x * _grid.GridSize + currentCoords.z;
+                ushort currentCost = flowField.CostField[currentFlatIndex];
 
                 for (int x = -1; x <= 1; x++)
                 {
@@ -154,22 +170,20 @@ namespace Scripts.GridSystem
 
                         if (nx < 0 || nx >= _grid.GridSize || nz < 0 || nz >= _grid.GridSize) continue;
 
-                        ushort terrainCost = _staticCostField[nx, nz];
-                        if (terrainCost == ushort.MaxValue)
-                        {
-                            continue;
-                        }
-                
-                        bool isDiagonal = (x != 0 && z != 0);
-                        ushort moveCost = isDiagonal ? diagonalCost : straightCost;
+                        int neighbourFlatIndex = nx * _grid.GridSize + nz;
 
-                        ushort newCost = (ushort)(currentCost + moveCost + terrainCost);
-
-                        if (newCost < flowField.CostField[nx, nz])
+                        if (flowField.CostField[neighbourFlatIndex] == ushort.MaxValue)
                         {
-                            flowField.CostField[nx, nz] = newCost;
-                            flowField.BestDirectionField[nx, nz] = currentCoords;
+                            ushort terrainCost = _staticCostField[nx, nz];
+                            if (terrainCost == ushort.MaxValue) continue;
+
+                            ushort moveCost = (x != 0 && z != 0) ? diagonalCost : straightCost;
+                            ushort newCost = (ushort)(currentCost + moveCost + terrainCost);
+
+                            flowField.CostField[neighbourFlatIndex] = newCost;
+                            flowField.BestDirectionField[neighbourFlatIndex] = currentFlatIndex;
                             _cellQueue.Enqueue((nx, nz));
+                            flowField.DirtyCells.Add(neighbourFlatIndex);
                         }
                     }
                 }

@@ -14,7 +14,7 @@ namespace Scripts.GameLoop
         private EntityPresenter _entityPresenter;
         private MovementSystem _movementSystem;
         private RenderSystem _renderSystem;
-        
+
         private PlayerMovementController _playerController;
 
         private void Start()
@@ -58,40 +58,47 @@ namespace Scripts.GameLoop
 
         private void OnDrawGizmos()
         {
-            if (_gridManager == null) return;
+            if (_gridManager == null || _gridManager.Grid == null)
+                return;
 
             var grid = _gridManager.Grid;
-            if (grid == null) return;
-
             var targetId = new InstanceId(1);
             FlowFieldData fieldData = _gridManager.GetFlowFieldForTarget(targetId);
 
-            if (fieldData?.Field == null) return;
+            if (fieldData?.Field == null)
+                return;
 
             var flowField = fieldData.Field;
 
-            int gizmoDrawStep = 5;
+            int gizmoDrawStep = 20;
 
             for (int x = 0; x < grid.GridSize; x += gizmoDrawStep)
             {
                 for (int z = 0; z < grid.GridSize; z += gizmoDrawStep)
                 {
+                    if (grid.IsObstacle(x, z))
+                        continue;
+                    
+                    int currentFlatIndex = x * grid.GridSize + z;
+                    int directionFlatIndex = flowField.BestDirectionField[currentFlatIndex];
+                    
+                    if (directionFlatIndex == currentFlatIndex)
+                        continue;
 
-                    if (grid.IsObstacle(x, z)) continue;
+                    Vector3 startPos = grid.GetWorldPos(x, z);
+                    int dirX = directionFlatIndex / grid.GridSize;
+                    int dirZ = directionFlatIndex % grid.GridSize;
+                    Vector3 endPos = grid.GetWorldPos(dirX, dirZ);
 
-                    var directionCoords = flowField.BestDirectionField[x, z];
-                    var currentCoords = (x, z);
+                    startPos.y = 0.5f;
+                    endPos.y = 0.5f;
 
-                    if (directionCoords.x == currentCoords.x && directionCoords.z == currentCoords.z) continue;
-
-                    Vector3 startPos = grid.GetWorldPos(currentCoords.x, currentCoords.z);
-                    Vector3 endPos = grid.GetWorldPos(directionCoords.x, directionCoords.z);
-
-                    float cost = flowField.CostField[x, z];
+                    float cost = flowField.CostField[currentFlatIndex];
                     if (cost == ushort.MaxValue) continue;
 
                     float maxCost = 5000f;
                     Gizmos.color = Color.Lerp(Color.green, Color.red, cost / maxCost);
+
                     Gizmos.DrawLine(startPos, endPos);
                 }
             }
