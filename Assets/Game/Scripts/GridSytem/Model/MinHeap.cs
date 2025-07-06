@@ -64,6 +64,7 @@ namespace Scripts.GridSystem.Model
                     int childIndexLeft = item.HeapIndex * 2 + 1;
                     int childIndexRight = item.HeapIndex * 2 + 2;
                     int swapIndex = item.HeapIndex;
+                    int itemHeapIndex = item.HeapIndex;
 
                     if (childIndexLeft < _count && _items[childIndexLeft].CompareTo(_items[swapIndex]) < 0)
                     {
@@ -77,7 +78,7 @@ namespace Scripts.GridSystem.Model
 
                     if (swapIndex != item.HeapIndex)
                     {
-                        Swap(item, _items[swapIndex]);
+                        Swap(item, itemHeapIndex, _items[swapIndex], swapIndex);
                     }
                     else
                     {
@@ -93,17 +94,18 @@ namespace Scripts.GridSystem.Model
             {
                 while (true)
                 {
-                    if (item.HeapIndex == 0)
+                    var itemHeapIndex = item.HeapIndex;
+                    if (itemHeapIndex == 0)
                     {
                         return;
                     }
                     
-                    int parentIndex = (item.HeapIndex - 1) / 2;
+                    int parentIndex = (itemHeapIndex - 1) / 2;
                     var parentItem = _items[parentIndex];
 
                     if (item.CompareTo(parentItem) < 0)
                     {
-                        Swap(item, parentItem);
+                        Swap(item, itemHeapIndex, parentItem, parentIndex);
                     }
                     else
                     {
@@ -113,11 +115,8 @@ namespace Scripts.GridSystem.Model
             }
         }
 
-        private void Swap(PathNode itemA, PathNode itemB)
+        private void Swap(PathNode itemA, int indexA, PathNode itemB, int indexB)
         {
-            int indexA = itemA.HeapIndex;
-            int indexB = itemB.HeapIndex;
-
             _items[indexA] = itemB;
             _items[indexB] = itemA;
 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Scripts.Utility;
+using System;
 namespace Scripts.GridSystem.Model
 {
     public class PathNode : MinHeap.IHeapItem<PathNode>, IEquatable<PathNode>
@@ -26,10 +27,10 @@ namespace Scripts.GridSystem.Model
         
         public int CompareTo(PathNode other)
         {
-            int compare = FCost.CompareTo(other.FCost);
+            int compare = CompareExtensions.CompareTo(FCost, other.FCost);
             if (compare != 0) return compare;
 
-            compare = HCost.CompareTo(other.HCost);
+            compare = CompareExtensions.CompareTo(HCost, other.HCost);
             if (compare != 0) return compare;
 
             compare = Cluster.ClusterX.CompareTo(other.Cluster.ClusterX);
