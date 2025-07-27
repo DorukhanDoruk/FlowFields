@@ -44,10 +44,13 @@ Generally, I am following this path:
  * **ClusterPortal**: will represent the transition points between two clusters.
  * **GridCluster**: will represent each piece when we divide our large grid into pieces.
  * **ClusterGraph**: will manage all pieces and the portals between them.
+
 <img width="968" height="376" alt="IMG_0035" src="https://github.com/user-attachments/assets/138b6cf7-53bd-4341-ac80-184e02ca0694" />
 And the result is this: we are getting a result hovering around 160 FPS on a 1000x1000 grid with 500 entities. Entities can sometimes follow a strange path when transitioning between grids, for example:
+
 <img width="286" height="191" alt="IMG_0036" src="https://github.com/user-attachments/assets/acbc3a53-b39d-4cb9-a2f0-dfdf675c3515" />
 Here, an entity wanting to go from point X to point Y, since the shortest transition from cluster A to cluster C is its top-right corner, it proceeds to the right edge or directly to the top-right corner of cluster A, no matter where it is within cluster A. The phrase "No matter where it is!" I think, accurately describes how some illogical transitions can occur here.
 I have finally resolved some of the issues I mentioned above.
+
 <img width="1396" height="122" alt="IMG_0037" src="https://github.com/user-attachments/assets/e1287959-3a3b-4fd5-b416-7fe7b23dd00f" />
 We get a result like the one above. In a deep profile, when the target remains stationary, it can go up to 160 FPS, but when the target changes clusters, the situation above occurs, and the FPS drops to the 60 band. I believe I have made all possible optimizations. The best thing left to do would be to calculate HCost more consistently and accurately to visit fewer nodes. Although MinHeap.Add and MinHeap.Remove seem costly, the real cost is that these two methods are called too frequently, as I believe both methods are as optimized as possible.
